@@ -257,7 +257,7 @@ export default function BauhausCreator() {
       }}
     >
       <div className="stage">
-        <PosterCanvas params={params} text={text} />
+        <PosterCanvas key={`${style}|${paletteId}|${seed}|${density}`} params={params} text={text} />
       </div>
 
       <button
@@ -272,7 +272,7 @@ export default function BauhausCreator() {
 
       {showHint && (
         <div className="hint" onClick={dismissHint}>
-          <div className="hint-card" onClick={(e) => e.stopPropagation()}>
+          <div className="hint-card">
             <h2>Bauhaus</h2>
             <ul>
               <li><b>Tap</b><span>new variant</span></li>
@@ -281,7 +281,6 @@ export default function BauhausCreator() {
               <li><b>Two fingers</b><span>colour theme</span></li>
               <li><b>Hold</b><span>save / share</span></li>
             </ul>
-            <button onClick={dismissHint}>Got it</button>
           </div>
         </div>
       )}
