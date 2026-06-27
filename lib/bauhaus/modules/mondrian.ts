@@ -14,6 +14,10 @@ export const mondrian: ModuleFn = ({ rng, palette, cols, rows, density }) => {
 
   prims.push({ kind: "rect", x: 0, y: 0, w: W, h: H, fill: palette.bg });
 
+  // fill colours must be visible against the field (exclude any bg-coloured swatch)
+  const fillColors = palette.colors.filter((c) => c.toLowerCase() !== palette.bg.toLowerCase());
+  const colors = fillColors.length ? fillColors : [palette.ink];
+
   // Surviving interior lines (drop some whole lines to merge bands → varied
   // rectangle sizes while staying a clean connected grid).
   const keep = 0.62 + density * 0.28;
@@ -24,21 +28,25 @@ export const mondrian: ModuleFn = ({ rng, palette, cols, rows, density }) => {
   for (let i = 1; i < rows; i++) if (rng.chance(keep)) ys.push(i * CELL);
   ys.push(H);
 
-  // Flood some cells with colour.
-  const colorP = 0.16 + density * 0.18;
-  for (let r = 0; r < ys.length - 1; r++) {
-    for (let c = 0; c < xs.length - 1; c++) {
-      if (rng.chance(colorP)) {
-        prims.push({
-          kind: "rect",
-          x: xs[c],
-          y: ys[r],
-          w: xs[c + 1] - xs[c],
-          h: ys[r + 1] - ys[r],
-          fill: rng.pick(palette.colors),
-        });
-      }
+  // Flood some cells with colour (guarantee a minimum so it's never near-empty).
+  const colorP = 0.24 + density * 0.2;
+  const allCells: Array<{ x: number; y: number; w: number; h: number }> = [];
+  for (let r = 0; r < ys.length - 1; r++)
+    for (let c = 0; c < xs.length - 1; c++)
+      allCells.push({ x: xs[c], y: ys[r], w: xs[c + 1] - xs[c], h: ys[r + 1] - ys[r] });
+
+  let filled = 0;
+  const minColored = Math.min(3, allCells.length);
+  for (const cell of allCells) {
+    if (rng.chance(colorP)) {
+      prims.push({ kind: "rect", ...cell, fill: rng.pick(colors) });
+      filled++;
     }
+  }
+  for (const cell of rng.shuffle(allCells)) {
+    if (filled >= minColored) break;
+    prims.push({ kind: "rect", ...cell, fill: rng.pick(colors) });
+    filled++;
   }
 
   // Full-span grid lines on top.

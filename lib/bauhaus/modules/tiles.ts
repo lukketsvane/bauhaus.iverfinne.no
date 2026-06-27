@@ -8,14 +8,16 @@ import { triPts, CORNERS } from "../geom";
 export const tiles: ModuleFn = ({ rng, palette, cols, rows, density }) => {
   const prims: Prim[] = [];
   const fg = palette.colors[0];
-  const fillP = 0.46 + density * 0.34;
+  // Capped so high density never collapses into one heavy black mass.
+  const fillP = 0.4 + density * 0.22; // 0.4 .. 0.62
+  const diagP = 0.3; // more diagonal splits → texture that breaks up blocks
 
   for (let row = 0; row < rows; row++) {
     for (let c = 0; c < cols; c++) {
       const x = c * CELL;
       const y = row * CELL;
       const roll = rng.float();
-      if (roll < 0.22) {
+      if (roll < diagP) {
         // diagonal split → two triangles (one coloured)
         const corner = rng.pick(CORNERS);
         prims.push({ kind: "poly", pts: triPts(x, y, CELL, corner), fill: rng.pick(palette.colors) });

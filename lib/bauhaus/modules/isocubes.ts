@@ -38,9 +38,15 @@ export const isocubes: ModuleFn = ({ rng, palette, cols, rows, density }) => {
     for (let col = -1; colStep * col + offset <= W + R * 2; col++) {
       const cx = col * colStep + offset;
 
-      // optional accent recolour for variety
-      const useAccent = palette.colors.length > 1 && rng.chance(0.16 + density * 0.1);
-      const b = useAccent ? rng.pick(palette.colors.slice(1)) : base;
+      // Multi-colour palettes → each cube gets its own base colour (vibrant
+      // tumbling blocks). 2-colour palettes keep the classic single-base look
+      // with an occasional accent.
+      let b: string;
+      if (palette.colors.length > 2) {
+        b = rng.pick(palette.colors);
+      } else {
+        b = palette.colors.length > 1 && rng.chance(0.16 + density * 0.1) ? palette.colors[1] : base;
+      }
       const tTop = mix(b, light, 0.86);
       const tRight = mix(b, light, 0.42);
       const tLeft = b;
