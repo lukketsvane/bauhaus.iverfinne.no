@@ -263,7 +263,9 @@ export default function BauhausCreator() {
       }}
     >
       <div className="stage">
-        <PosterCanvas key={`${style}|${paletteId}|${seed}|${density}`} params={params} text={text} />
+        {/* No key here: the SVG updates in place on change (no re-animation /
+            "wiggle"). The move-in animation plays once on initial mount. */}
+        <PosterCanvas params={params} text={text} />
       </div>
 
       <button
