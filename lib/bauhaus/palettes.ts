@@ -46,6 +46,13 @@ export const PALETTES: Palette[] = [
     ink: "#141414",
     colors: ["#D5362A", "#1E50A0", "#F2C12E", "#141414"],
   },
+  {
+    id: "prisma",
+    name: "Prisma",
+    bg: "#EFEBDD",
+    ink: "#141414",
+    colors: ["#D5362A", "#1E50A0", "#F2C12E", "#2C9E5B", "#141414"],
+  },
 ];
 
 export const PALETTE_BY_ID: Record<string, Palette> = Object.fromEntries(
@@ -63,4 +70,8 @@ export const DEFAULT_PALETTE: Record<StyleId, string> = {
   blocks: "orange",
   isocubes: "mono",
   mondrian: "primary",
+  quarters: "prisma",
+  arches: "prisma",
+  medley: "prisma",
+  tiles: "mono",
 };

@@ -169,7 +169,11 @@ export default function BauhausCreator() {
     window.clearTimeout(tf.current);
   };
 
+  const onControl = (e: React.TouchEvent) =>
+    showHint || !!(e.target as HTMLElement).closest(".hint, .hint-toggle");
+
   const onTouchStart = (e: React.TouchEvent) => {
+    if (onControl(e)) return;
     const n = e.touches.length;
     if (!g.current.active) {
       const t = e.touches[0];
@@ -190,6 +194,7 @@ export default function BauhausCreator() {
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
+    if (onControl(e) || !g.current.active) return;
     const t = e.touches[0];
     if (!t) return;
     g.current.lx = t.clientX;
@@ -205,6 +210,7 @@ export default function BauhausCreator() {
     if (e.touches.length > 0) return; // wait for all fingers up
     clearTimers();
     lastTouchEnd.current = Date.now();
+    if (onControl(e)) { g.current.active = false; return; }
     const st = g.current;
     g.current.active = false;
     if (st.handled) return;
