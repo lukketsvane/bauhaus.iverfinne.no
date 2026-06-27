@@ -40,11 +40,21 @@ export default function BauhausCreator() {
 
   useEffect(() => {
     const h = readHash();
-    if (h.s && STYLES.some((x) => x.id === h.s)) setStyle(h.s as StyleId);
-    if (h.p && PALETTES.some((x) => x.id === h.p)) setPaletteId(h.p);
-    if (h.d) setDensity(Math.max(0.2, Math.min(1, parseFloat(h.d))));
-    const s = h.seed ? stringToSeed(h.seed) : null;
-    setSeed(s ?? randomSeed());
+    const hasHash = !!(h.s || h.seed || h.p || h.d);
+    if (hasHash) {
+      // shared / bookmarked link → reproduce it exactly
+      if (h.s && STYLES.some((x) => x.id === h.s)) setStyle(h.s as StyleId);
+      if (h.p && PALETTES.some((x) => x.id === h.p)) setPaletteId(h.p);
+      if (h.d) setDensity(Math.max(0.2, Math.min(1, parseFloat(h.d))));
+      const s = h.seed ? stringToSeed(h.seed) : null;
+      setSeed(s ?? randomSeed());
+    } else {
+      // fresh visit → randomise the whole composition on every load
+      const st = STYLES[Math.floor(Math.random() * STYLES.length)].id;
+      setStyle(st);
+      setPaletteId(DEFAULT_PALETTE[st]);
+      setSeed(randomSeed());
+    }
     try {
       if (!localStorage.getItem(HINT_KEY)) setShowHint(true);
     } catch {
@@ -63,10 +73,9 @@ export default function BauhausCreator() {
     [year, styleName, seed],
   );
 
-  useEffect(() => {
-    const p = new URLSearchParams({ s: style, p: paletteId, seed: seedToString(seed), d: density.toFixed(2) });
-    window.history.replaceState(null, "", `#${p.toString()}`);
-  }, [style, paletteId, seed, density]);
+  // The URL is intentionally NOT kept in sync, so every fresh load of the
+  // landing page randomises. (A hash like #s=…&seed=… still reproduces a
+  // specific poster if one is opened directly.)
 
   const toastTimer = useRef<number>(0);
   const flash = useCallback((node: React.ReactNode) => {
