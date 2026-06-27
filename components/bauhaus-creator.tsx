@@ -35,6 +35,7 @@ export default function BauhausCreator() {
   const [density, setDensity] = useState<number>(0.6);
   const [toast, setToast] = useState<React.ReactNode>(null);
   const [showHint, setShowHint] = useState(false);
+  const [hintClosing, setHintClosing] = useState(false);
 
   useEffect(() => {
     const h = readHash();
@@ -245,8 +246,10 @@ export default function BauhausCreator() {
   }, [stepStyle, stepDensity, cyclePalette, saveOrShare, regenerate]);
 
   const dismissHint = () => {
-    setShowHint(false);
+    if (hintClosing) return;
+    setHintClosing(true);
     try { localStorage.setItem(HINT_KEY, "1"); } catch { /* ignore */ }
+    window.setTimeout(() => { setShowHint(false); setHintClosing(false); }, 260);
   };
 
   return (
@@ -279,7 +282,7 @@ export default function BauhausCreator() {
       {toast && <div className="toast">{toast}</div>}
 
       {showHint && (
-        <div className="hint" onClick={dismissHint}>
+        <div className={`hint${hintClosing ? " closing" : ""}`} onClick={dismissHint}>
           <div className="hint-card">
             <h2>Bauhaus</h2>
             <ul>
