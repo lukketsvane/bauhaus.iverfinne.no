@@ -1,10 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Dice5, Download, ChevronLeft, ChevronRight, Minus, Plus, Share2, FileCode2,
-  Flower2, Circle, Box, Boxes, LayoutGrid, type LucideIcon,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STYLES } from "@/lib/bauhaus/generate";
 import { PALETTES, DEFAULT_PALETTE } from "@/lib/bauhaus/palettes";
 import { Rng, randomSeed, seedToString, stringToSeed } from "@/lib/bauhaus/rng";
@@ -16,17 +12,8 @@ import PosterCanvas, { buildSvg } from "./poster-canvas";
 const YEARS = ["1919", "1923", "1925", "1928", "1933"];
 const SITE = "bauhaus.iverfinne.no";
 const DEFAULT_SEED = 1337;
+const HINT_KEY = "bh_hint_seen_v1";
 
-const STYLE_ICON: Record<StyleId, LucideIcon> = {
-  petals: Flower2,
-  semicircles: Circle,
-  blocks: Box,
-  isocubes: Boxes,
-  mondrian: LayoutGrid,
-};
-
-// Pick a grid whose rows follow the fixed art-region ratio, so cells stay
-// square and the art fills the region on every poster.
 function deriveLayout(style: StyleId, seed: number) {
   const meta = STYLES.find((s) => s.id === style)!;
   const r = new Rng((seed ^ 0x5bd1e995) >>> 0);
@@ -35,18 +22,10 @@ function deriveLayout(style: StyleId, seed: number) {
   return { cols, rows, year: r.pick(YEARS) };
 }
 
-function readHash(): { style?: StyleId; palette?: string; seed?: number; density?: number } {
-  if (typeof window === "undefined") return {};
+function readHash() {
+  if (typeof window === "undefined") return {} as Record<string, string>;
   const p = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const style = p.get("s") as StyleId | null;
-  const seed = p.get("seed") ? stringToSeed(p.get("seed")!) : null;
-  const d = p.get("d");
-  return {
-    style: style && STYLES.some((x) => x.id === style) ? style : undefined,
-    palette: p.get("p") ?? undefined,
-    seed: seed ?? undefined,
-    density: d ? Math.max(0, Math.min(1, parseFloat(d))) : undefined,
-  };
+  return Object.fromEntries(p.entries());
 }
 
 export default function BauhausCreator() {
@@ -54,24 +33,28 @@ export default function BauhausCreator() {
   const [paletteId, setPaletteId] = useState<string>(DEFAULT_PALETTE.petals);
   const [seed, setSeed] = useState<number>(DEFAULT_SEED);
   const [density, setDensity] = useState<number>(0.6);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<React.ReactNode>(null);
+  const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
     const h = readHash();
-    if (h.style) setStyle(h.style);
-    if (h.palette) setPaletteId(h.palette);
-    if (h.density != null) setDensity(h.density);
-    setSeed(h.seed ?? randomSeed());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (h.s && STYLES.some((x) => x.id === h.s)) setStyle(h.s as StyleId);
+    if (h.p && PALETTES.some((x) => x.id === h.p)) setPaletteId(h.p);
+    if (h.d) setDensity(Math.max(0.2, Math.min(1, parseFloat(h.d))));
+    const s = h.seed ? stringToSeed(h.seed) : null;
+    setSeed(s ?? randomSeed());
+    try {
+      if (!localStorage.getItem(HINT_KEY)) setShowHint(true);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const { cols, rows, year } = useMemo(() => deriveLayout(style, seed), [style, seed]);
-
   const params: GenParams = useMemo(
     () => ({ style, paletteId, seed, cols, rows, density }),
     [style, paletteId, seed, cols, rows, density],
   );
-
   const styleName = STYLES.find((s) => s.id === style)!.name;
   const text: PosterText = useMemo(
     () => ({ title: "Bauhaus", year, caption: `${styleName} · ${seedToString(seed)}`, site: SITE }),
@@ -83,132 +66,225 @@ export default function BauhausCreator() {
     window.history.replaceState(null, "", `#${p.toString()}`);
   }, [style, paletteId, seed, density]);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 1400);
+  const toastTimer = useRef<number>(0);
+  const flash = useCallback((node: React.ReactNode) => {
+    setToast(node);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 1100);
   }, []);
+
+  const dots = (lvl: number) => (
+    <span className="dots">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className={i < lvl ? "on" : ""} />
+      ))}
+    </span>
+  );
 
   const regenerate = useCallback(() => setSeed(randomSeed()), []);
 
-  const stepStyle = useCallback(
-    (dir: number) => {
-      const idx = STYLES.findIndex((s) => s.id === style);
+  const stepStyle = useCallback((dir: number) => {
+    setStyle((cur) => {
+      const idx = STYLES.findIndex((s) => s.id === cur);
       const next = STYLES[(idx + dir + STYLES.length) % STYLES.length];
-      setStyle(next.id);
       setPaletteId(DEFAULT_PALETTE[next.id]);
-    },
-    [style],
-  );
+      flash(<span>{next.name}</span>);
+      return next.id;
+    });
+  }, [flash]);
 
-  const exportPng = useCallback(async () => {
+  const cyclePalette = useCallback(() => {
+    setPaletteId((cur) => {
+      const idx = PALETTES.findIndex((p) => p.id === cur);
+      const next = PALETTES[(idx + 1) % PALETTES.length];
+      flash(
+        <span className="swatch-flash">
+          {next.colors.slice(0, 3).map((c, i) => (
+            <span key={i} style={{ background: c }} />
+          ))}
+          {next.name}
+        </span>,
+      );
+      return next.id;
+    });
+  }, [flash]);
+
+  const stepDensity = useCallback((delta: number) => {
+    setDensity((d) => {
+      const nd = Math.max(0.2, Math.min(1, Math.round((d + delta) * 10) / 10));
+      flash(dots(Math.round(nd * 5)));
+      return nd;
+    });
+  }, [flash]);
+
+  const makePngBlob = useCallback(async (): Promise<Blob | null> => {
     const svg = buildSvg(params, text, true);
     const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    const img = new Image();
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej(new Error("svg load failed"));
-      img.src = url;
-    });
-    const targetW = 2000;
-    const canvas = document.createElement("canvas");
-    canvas.width = targetW;
-    canvas.height = Math.round((targetW * (img.height || 1500)) / (img.width || 1000));
-    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    canvas.toBlob((b) => {
-      if (!b) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(b);
-      a.download = `bauhaus-${style}-${seedToString(seed)}.png`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast("PNG");
-    }, "image/png");
-  }, [params, text, style, seed, showToast]);
-
-  const exportSvg = useCallback(() => {
-    const svg = buildSvg(params, text, true);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    a.download = `bauhaus-${style}-${seedToString(seed)}.svg`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast("SVG");
-  }, [params, text, style, seed, showToast]);
-
-  const share = useCallback(async () => {
-    const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: "Bauhaus", url });
-      else {
-        await navigator.clipboard.writeText(url);
-        showToast("Copied");
+      const img = new Image();
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error("load"));
+        img.src = url;
+      });
+      const w = 2000;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = Math.round((w * (img.height || 1500)) / (img.width || 1000));
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }, [params, text]);
+
+  const saveOrShare = useCallback(async () => {
+    flash(<span>Saving…</span>);
+    const blob = await makePngBlob();
+    if (!blob) return;
+    const file = new File([blob], `bauhaus-${style}-${seedToString(seed)}.png`, { type: "image/png" });
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+    try {
+      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
+        await nav.share({ files: [file], title: "Bauhaus" });
+        return;
       }
     } catch {
-      /* cancelled */
+      return; // user cancelled
     }
-  }, [showToast]);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    flash(<span>Saved</span>);
+  }, [makePngBlob, style, seed, flash]);
 
-  const adjustDensity = (delta: number) =>
-    setDensity((d) => Math.max(0.2, Math.min(1, Math.round((d + delta) * 10) / 10)));
+  // ---- gesture handling ----
+  const g = useRef({ x: 0, y: 0, lx: 0, ly: 0, t: 0, moved: false, max: 1, handled: false, active: false });
+  const lp = useRef<number>(0);
+  const tf = useRef<number>(0);
+  const clearTimers = () => {
+    window.clearTimeout(lp.current);
+    window.clearTimeout(tf.current);
+  };
 
-  const StyleIcon = STYLE_ICON[style];
-  const level = Math.max(1, Math.min(5, Math.round(density * 5)));
+  const onTouchStart = (e: React.TouchEvent) => {
+    const n = e.touches.length;
+    if (!g.current.active) {
+      const t = e.touches[0];
+      g.current = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, t: Date.now(), moved: false, max: n, handled: false, active: true };
+    } else {
+      g.current.max = Math.max(g.current.max, n);
+    }
+    clearTimers();
+    if (n >= 2) {
+      tf.current = window.setTimeout(() => {
+        if (!g.current.handled) { g.current.handled = true; cyclePalette(); }
+      }, 300);
+    } else {
+      lp.current = window.setTimeout(() => {
+        if (!g.current.moved && !g.current.handled) { g.current.handled = true; saveOrShare(); }
+      }, 500);
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    g.current.lx = t.clientX;
+    g.current.ly = t.clientY;
+    if (Math.abs(t.clientX - g.current.x) > 12 || Math.abs(t.clientY - g.current.y) > 12) {
+      g.current.moved = true;
+      clearTimers();
+    }
+  };
+
+  const lastTouchEnd = useRef<number>(0);
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) return; // wait for all fingers up
+    clearTimers();
+    lastTouchEnd.current = Date.now();
+    const st = g.current;
+    g.current.active = false;
+    if (st.handled) return;
+    if (st.max >= 2) { cyclePalette(); return; }
+    const ct = e.changedTouches[0];
+    const dx = (ct ? ct.clientX : st.lx) - st.x;
+    const dy = (ct ? ct.clientY : st.y) - st.y;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (!st.moved || Math.max(ax, ay) < 40) { regenerate(); return; }
+    if (ax >= ay) stepStyle(dx < 0 ? 1 : -1);
+    else stepDensity(dy < 0 ? 0.2 : -0.2);
+  };
+
+  // ---- keyboard (desktop) ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "ArrowRight": stepStyle(1); break;
+        case "ArrowLeft": stepStyle(-1); break;
+        case "ArrowUp": stepDensity(0.2); break;
+        case "ArrowDown": stepDensity(-0.2); break;
+        case "c": case "C": cyclePalette(); break;
+        case "s": case "S": saveOrShare(); break;
+        case "?": setShowHint((v) => !v); break;
+        case " ": case "Enter": regenerate(); break;
+        default: return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stepStyle, stepDensity, cyclePalette, saveOrShare, regenerate]);
+
+  const dismissHint = () => {
+    setShowHint(false);
+    try { localStorage.setItem(HINT_KEY, "1"); } catch { /* ignore */ }
+  };
 
   return (
-    <div className="creator">
-      <div className="stage" onClick={regenerate} title="Regenerate">
+    <div
+      className="creator"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onClick={() => {
+        // desktop mouse click regenerates; ignore the synthetic click that
+        // follows a touch gesture (handled in onTouchEnd).
+        if (Date.now() - lastTouchEnd.current < 700) return;
+        regenerate();
+      }}
+    >
+      <div className="stage">
         <PosterCanvas params={params} text={text} />
       </div>
 
-      <div className="bar" onClick={(e) => e.stopPropagation()}>
-        <div className="row">
-          <button className="stepper" onClick={() => stepStyle(-1)} aria-label="Previous style">
-            <ChevronLeft size={18} />
-          </button>
-          <span className="style-icon" aria-label={styleName} title={styleName}>
-            <StyleIcon size={20} />
-          </span>
-          <button className="stepper" onClick={() => stepStyle(1)} aria-label="Next style">
-            <ChevronRight size={18} />
-          </button>
-
-          <div className="swatches">
-            {PALETTES.map((p) => (
-              <button
-                key={p.id}
-                className={`swatch${p.id === paletteId ? " active" : ""}`}
-                onClick={() => setPaletteId(p.id)}
-                aria-label={p.name}
-                title={p.name}
-              >
-                {p.colors.slice(0, 3).map((c, i) => (
-                  <span key={i} style={{ background: c }} />
-                ))}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="density" aria-label={`Density ${level} of 5`}>
-            <button onClick={() => adjustDensity(-0.2)} aria-label="Less density"><Minus size={16} /></button>
-            <span className="dots">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <span key={i} className={i < level ? "on" : ""} />
-              ))}
-            </span>
-            <button onClick={() => adjustDensity(0.2)} aria-label="More density"><Plus size={16} /></button>
-          </div>
-          <div className="spacer" />
-          <button className="action" onClick={share} aria-label="Share"><Share2 size={18} /></button>
-          <button className="action" onClick={exportSvg} aria-label="Save SVG"><FileCode2 size={18} /></button>
-          <button className="action" onClick={exportPng} aria-label="Save PNG"><Download size={18} /></button>
-          <button className="action primary" onClick={regenerate} aria-label="Regenerate"><Dice5 size={18} /></button>
-        </div>
-      </div>
+      <button
+        className="hint-toggle"
+        aria-label="Gestures"
+        onClick={(e) => { e.stopPropagation(); setShowHint(true); }}
+      >
+        ?
+      </button>
 
       {toast && <div className="toast">{toast}</div>}
+
+      {showHint && (
+        <div className="hint" onClick={dismissHint}>
+          <div className="hint-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Bauhaus</h2>
+            <ul>
+              <li><b>Tap</b><span>new variant</span></li>
+              <li><b>Swipe ← →</b><span>style</span></li>
+              <li><b>Swipe ↑ ↓</b><span>density</span></li>
+              <li><b>Two fingers</b><span>colour theme</span></li>
+              <li><b>Hold</b><span>save / share</span></li>
+            </ul>
+            <button onClick={dismissHint}>Got it</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

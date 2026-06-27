@@ -36,6 +36,8 @@ body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  touch-action: none;
+  cursor: pointer;
 }
 
 .stage {
@@ -44,8 +46,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(env(safe-area-inset-top), 16px) 16px 8px;
-  cursor: pointer;
+  padding: max(env(safe-area-inset-top), 20px) 18px max(env(safe-area-inset-bottom), 20px);
 }
 
 .poster-canvas {
@@ -212,16 +213,137 @@ button {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(120px + env(safe-area-inset-bottom));
+  bottom: calc(48px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: rgba(20, 20, 20, 0.9);
   color: #f4f2ea;
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   pointer-events: none;
   animation: toast-in 0.18s ease-out;
+  z-index: 20;
+}
+
+.toast .dots span {
+  background: rgba(244, 242, 234, 0.3);
+}
+
+.toast .dots span.on {
+  background: #f4f2ea;
+}
+
+.swatch-flash {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch-flash > span {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.swatch-flash {
+  text-transform: none;
+}
+
+/* ---- gesture hint ---- */
+.hint-toggle {
+  position: fixed;
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  color: #161616;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+
+.hint-toggle:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.hint {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 20, 0.32);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: toast-in 0.18s ease-out;
+}
+
+.hint-card {
+  background: #f5f3eb;
+  border-radius: 22px;
+  padding: 26px 26px 20px;
+  width: min(86vw, 340px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.hint-card h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #161616;
+}
+
+.hint-card ul {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hint-card li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 15px;
+  color: #161616;
+}
+
+.hint-card li b {
+  font-weight: 800;
+}
+
+.hint-card li span {
+  color: #6b6862;
+  font-weight: 600;
+}
+
+.hint-card > button {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  background: #161616;
+  color: #f4f2ea;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.hint-card > button:active {
+  transform: scale(0.98);
 }
 
 @keyframes toast-in {
