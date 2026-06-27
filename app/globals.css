@@ -295,9 +295,13 @@ button {
   align-items: center;
   justify-content: center;
   background: rgba(20, 20, 20, 0.32);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: toast-in 0.18s ease-out;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: hint-bg-in 0.4s ease both;
+}
+
+.hint.closing {
+  animation: hint-bg-out 0.26s ease both;
 }
 
 .hint-card {
@@ -306,6 +310,32 @@ button {
   padding: 26px 26px 20px;
   width: min(86vw, 340px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  transform-origin: center bottom;
+  animation: hint-card-in 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hint.closing .hint-card {
+  animation: hint-card-out 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes hint-bg-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hint-bg-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes hint-card-in {
+  from { opacity: 0; transform: translateY(26px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes hint-card-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(18px) scale(0.97); }
 }
 
 .hint-card h2 {
