@@ -1,10 +1,5 @@
-import BauhausPosterGenerator from "@/components/bauhaus-poster-generator"
+import BauhausCreator from "@/components/bauhaus-creator";
 
 export default function Home() {
-  return (
-    <main className="min-h-screen">
-      <BauhausPosterGenerator />
-    </main>
-  )
+  return <BauhausCreator />;
 }
-
