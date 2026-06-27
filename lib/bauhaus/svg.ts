@@ -57,6 +57,8 @@ export function sceneToPosterSvg(
 ): string {
   const clipId = opts.clipId ?? "artclip";
   const xmlns = opts.standalone ? ` xmlns="http://www.w3.org/2000/svg"` : "";
+  // explicit intrinsic size so the SVG rasterises correctly when drawn to canvas
+  const size = opts.standalone ? ` width="${PW}" height="${PH}"` : "";
 
   // fit + centre the generated scene into the fixed art region
   const scale = Math.min(ART_W / scene.width, ART_H / scene.height);
@@ -70,7 +72,7 @@ export function sceneToPosterSvg(
 
   const art = scene.prims.map(primToSvg).join("");
 
-  return `<svg${xmlns} viewBox="0 0 ${PW} ${PH}" preserveAspectRatio="xMidYMid meet">
+  return `<svg${xmlns}${size} viewBox="0 0 ${PW} ${PH}" preserveAspectRatio="xMidYMid meet">
   <defs><clipPath id="${clipId}"><rect x="${ART_X}" y="${ART_Y}" width="${ART_W}" height="${ART_H}"/></clipPath></defs>
   <rect x="0" y="0" width="${PW}" height="${PH}" fill="${palette.bg}"/>
   <g clip-path="url(#${clipId})">

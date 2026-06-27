@@ -5,6 +5,7 @@ import { STYLES } from "@/lib/bauhaus/generate";
 import { PALETTES, DEFAULT_PALETTE } from "@/lib/bauhaus/palettes";
 import { Rng, randomSeed, seedToString, stringToSeed } from "@/lib/bauhaus/rng";
 import { ART_REGION_RATIO } from "@/lib/bauhaus/svg";
+import { withDpi } from "@/lib/bauhaus/png";
 import type { GenParams, StyleId } from "@/lib/bauhaus/types";
 import type { PosterText } from "@/lib/bauhaus/svg";
 import PosterCanvas, { buildSvg } from "./poster-canvas";
@@ -128,12 +129,25 @@ export default function BauhausCreator() {
         img.onerror = () => rej(new Error("load"));
         img.src = url;
       });
-      const w = 2000;
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = Math.round((w * (img.height || 1500)) / (img.width || 1000));
-      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
+      // Print quality: render as large as the device allows (2:3 poster, 300dpi).
+      // 4800×7200px = 16×24in @ 300dpi. iOS Safari caps canvas area/side, so we
+      // step down until the canvas renders without going blank.
+      const widths = [4800, 3600, 2731, 2200, 1600];
+      for (const w of widths) {
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = Math.round(w * 1.5); // 2:3 portrait
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // detect blank (iOS oversize → transparent canvas)
+        if (ctx.getImageData(4, 4, 1, 1).data[3] === 0 && w !== widths[widths.length - 1]) continue;
+        const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
+        if (!blob) continue;
+        const tagged = withDpi(await blob.arrayBuffer(), 300);
+        return new Blob([tagged], { type: "image/png" });
+      }
+      return null;
     } finally {
       URL.revokeObjectURL(url);
     }
