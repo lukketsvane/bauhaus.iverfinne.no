@@ -10,7 +10,11 @@ export type StyleId =
   | "semicircles"
   | "blocks"
   | "mondrian"
-  | "isocubes";
+  | "isocubes"
+  | "quarters"
+  | "arches"
+  | "medley"
+  | "tiles";
 
 export interface StyleMeta {
   id: StyleId;
