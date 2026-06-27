@@ -65,14 +65,16 @@ function motif(name: (typeof MOTIFS)[number], x: number, y: number, { rng, palet
       return out;
     }
     case "arcs": {
+      // filled concentric half-disc bands (top/bottom only → no edge slivers)
       const out: Prim[] = [];
-      const e = rng.pick(EDGES);
-      const bands = rng.int(2, 3);
+      const e: "n" | "s" = rng.chance(0.5) ? "n" : "s";
+      const bands = rng.int(3, 4);
       const start = rng.int(0, palette.colors.length - 1);
       for (let b = 0; b < bands; b++) {
         out.push({
-          kind: "path", d: arcPath(x, y, s, e, r * (1 - b / (bands + 0.4))),
-          fill: "none", stroke: palette.colors[(start + b) % palette.colors.length], sw: s * 0.12,
+          kind: "path",
+          d: `${arcPath(x, y, s, e, r * ((bands - b) / bands))} Z`,
+          fill: palette.colors[(start + b) % palette.colors.length],
         });
       }
       return out;

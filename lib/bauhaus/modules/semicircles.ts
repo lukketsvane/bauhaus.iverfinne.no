@@ -24,8 +24,8 @@ export const semicircles: ModuleFn = ({ rng, palette, cols, rows, density }) => 
   const prims: Prim[] = [];
   const ink = palette.colors[0];
   const accent = palette.colors[1] ?? palette.colors[0];
-  const fillP = 0.84 + density * 0.14;
-  const accentP = 0.14 + density * 0.12;
+  const fillP = 0.9 + density * 0.08;
+  const accentP = 0.16 + density * 0.12;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -34,7 +34,8 @@ export const semicircles: ModuleFn = ({ rng, palette, cols, rows, density }) => 
       const y = r * CELL;
       const color = rng.chance(accentP) ? accent : ink;
 
-      if (rng.chance(0.32)) {
+      // more full circles → a calmer, denser rhythm (less scattered)
+      if (rng.chance(0.5)) {
         prims.push({ kind: "circle", cx: x + CELL / 2, cy: y + CELL / 2, r: CELL / 2, fill: color });
       } else {
         prims.push({ kind: "path", d: half(x, y, CELL, rng.pick(EDGES)), fill: color });
