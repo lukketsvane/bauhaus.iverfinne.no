@@ -61,8 +61,6 @@ body {
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.18));
-  border-radius: 2px;
 }
 
 /* ---- control bar (frosted, iOS-style) ---- */
@@ -89,12 +87,14 @@ body {
   flex: 1 1 auto;
 }
 
-.style-name {
-  min-width: 92px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.01em;
+.style-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  width: 48px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.05);
   color: #161616;
 }
 
@@ -176,11 +176,23 @@ button {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.density span {
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 96px;
-  text-align: center;
+.dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+}
+
+.dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.15s;
+}
+
+.dots span.on {
+  background: #161616;
 }
 
 .density button {
