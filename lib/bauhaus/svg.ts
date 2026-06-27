@@ -1,8 +1,9 @@
-import { CELL, type Palette, type Prim, type Scene } from "./types";
+import { type Palette, type Prim, type Scene } from "./types";
 
 // Serialises a Scene + poster chrome (frame, title, year, caption) to an SVG
-// string. Used both for on-screen rendering (dangerouslySetInnerHTML) and for
-// PNG/SVG export, so what you see is exactly what you save.
+// string. The poster is ALWAYS a fixed 2:3 portrait; the generated art is
+// scaled to fit a fixed art region (square cells preserved, centred, clipped),
+// so every poster has identical proportions regardless of grid size.
 
 export interface PosterText {
   title: string;
@@ -11,33 +12,24 @@ export interface PosterText {
   site: string;
 }
 
-// Layout constants, in CELL units.
-const PAD = CELL * 0.62;
-const TITLE_H = CELL * 2.05; // two stacked lines: title + year
-const CAPTION_H = CELL * 0.95; // two stacked caption lines
+// Fixed poster geometry (poster units).
+const PW = 1000;
+const PH = 1500;
+const PAD = 72;
+const TITLE_SIZE = 112;
+const CAP_SIZE = 26;
+
+const ART_X = PAD;
+const ART_Y = 300;
+const ART_W = PW - PAD * 2; // 856
+const ART_H = PH - 120 - ART_Y; // 1080
+
 const FONT = `'Helvetica Neue', Helvetica, Arial, sans-serif`;
 
-export interface PosterLayout {
-  pw: number;
-  ph: number;
-  artX: number;
-  artY: number;
-  artW: number;
-  artH: number;
-}
-
-export function posterLayout(scene: Scene): PosterLayout {
-  const artW = scene.width;
-  const artH = scene.height;
-  return {
-    pw: artW + PAD * 2,
-    ph: PAD + TITLE_H + artH + CAPTION_H + PAD * 0.4,
-    artX: PAD,
-    artY: PAD + TITLE_H,
-    artW,
-    artH,
-  };
-}
+/** Aspect ratio (rows/cols) the art region wants, so callers can pick a grid
+ *  that fills it with square cells. */
+export const ART_REGION_RATIO = ART_H / ART_W;
+export const POSTER_RATIO = PW / PH;
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -63,30 +55,30 @@ export function sceneToPosterSvg(
   text: PosterText,
   opts: { standalone?: boolean; clipId?: string } = {},
 ): string {
-  const L = posterLayout(scene);
   const clipId = opts.clipId ?? "artclip";
   const xmlns = opts.standalone ? ` xmlns="http://www.w3.org/2000/svg"` : "";
 
-  const titleSize = CELL * 0.78;
-  const yearSize = CELL * 0.78;
-  const capSize = CELL * 0.18;
-  const titleY = PAD + titleSize * 0.82;
-  const yearY = titleY + yearSize * 1.0;
-  const capLine2 = L.ph - PAD * 0.5;
-  const capLine1 = capLine2 - capSize * 1.35;
+  // fit + centre the generated scene into the fixed art region
+  const scale = Math.min(ART_W / scene.width, ART_H / scene.height);
+  const tx = ART_X + (ART_W - scene.width * scale) / 2;
+  const ty = ART_Y + (ART_H - scene.height * scale) / 2;
+
+  const titleY = PAD + TITLE_SIZE * 0.78;
+  const yearY = titleY + TITLE_SIZE * 0.98;
+  const capLine2 = PH - 48;
+  const capLine1 = capLine2 - CAP_SIZE * 1.35;
 
   const art = scene.prims.map(primToSvg).join("");
 
-  return `<svg${xmlns} viewBox="0 0 ${L.pw} ${L.ph}" preserveAspectRatio="xMidYMid meet">
-  <defs><clipPath id="${clipId}"><rect x="${L.artX}" y="${L.artY}" width="${L.artW}" height="${L.artH}"/></clipPath></defs>
-  <rect x="0" y="0" width="${L.pw}" height="${L.ph}" fill="${palette.bg}"/>
+  return `<svg${xmlns} viewBox="0 0 ${PW} ${PH}" preserveAspectRatio="xMidYMid meet">
+  <defs><clipPath id="${clipId}"><rect x="${ART_X}" y="${ART_Y}" width="${ART_W}" height="${ART_H}"/></clipPath></defs>
+  <rect x="0" y="0" width="${PW}" height="${PH}" fill="${palette.bg}"/>
   <g clip-path="url(#${clipId})">
-    <rect x="${L.artX}" y="${L.artY}" width="${L.artW}" height="${L.artH}" fill="${palette.bg}"/>
-    ${art}
+    <g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">${art}</g>
   </g>
-  <text x="${L.artX}" y="${titleY}" font-family="${FONT}" font-weight="800" font-size="${titleSize}" letter-spacing="${-titleSize * 0.03}" fill="${palette.ink}">${esc(text.title)}</text>
-  <text x="${L.artX}" y="${yearY}" font-family="${FONT}" font-weight="800" font-size="${yearSize}" letter-spacing="${-yearSize * 0.03}" fill="${palette.ink}">${esc(text.year)}</text>
-  <text x="${L.artX}" y="${capLine1}" font-family="${FONT}" font-weight="700" font-size="${capSize}" letter-spacing="${capSize * 0.08}" fill="${palette.ink}">${esc(text.caption.toUpperCase())}</text>
-  <text x="${L.artX}" y="${capLine2}" font-family="${FONT}" font-weight="700" font-size="${capSize}" letter-spacing="${capSize * 0.08}" fill="${palette.ink}">${esc(text.site.toUpperCase())}</text>
+  <text x="${ART_X}" y="${titleY}" font-family="${FONT}" font-weight="800" font-size="${TITLE_SIZE}" letter-spacing="${-TITLE_SIZE * 0.03}" fill="${palette.ink}">${esc(text.title)}</text>
+  <text x="${ART_X}" y="${yearY}" font-family="${FONT}" font-weight="800" font-size="${TITLE_SIZE}" letter-spacing="${-TITLE_SIZE * 0.03}" fill="${palette.ink}">${esc(text.year)}</text>
+  <text x="${ART_X}" y="${capLine1}" font-family="${FONT}" font-weight="700" font-size="${CAP_SIZE}" letter-spacing="${CAP_SIZE * 0.08}" fill="${palette.ink}">${esc(text.caption.toUpperCase())}</text>
+  <text x="${ART_X}" y="${capLine2}" font-family="${FONT}" font-weight="700" font-size="${CAP_SIZE}" letter-spacing="${CAP_SIZE * 0.08}" fill="${palette.ink}">${esc(text.site.toUpperCase())}</text>
 </svg>`;
 }

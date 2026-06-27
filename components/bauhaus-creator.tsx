@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Dice5, Download, ChevronLeft, ChevronRight, Minus, Plus, Share2 } from "lucide-react";
+import {
+  Dice5, Download, ChevronLeft, ChevronRight, Minus, Plus, Share2, FileCode2,
+  Flower2, Circle, Box, Boxes, LayoutGrid, type LucideIcon,
+} from "lucide-react";
 import { STYLES } from "@/lib/bauhaus/generate";
-import { PALETTES, DEFAULT_PALETTE, getPalette } from "@/lib/bauhaus/palettes";
+import { PALETTES, DEFAULT_PALETTE } from "@/lib/bauhaus/palettes";
 import { Rng, randomSeed, seedToString, stringToSeed } from "@/lib/bauhaus/rng";
+import { ART_REGION_RATIO } from "@/lib/bauhaus/svg";
 import type { GenParams, StyleId } from "@/lib/bauhaus/types";
 import type { PosterText } from "@/lib/bauhaus/svg";
 import PosterCanvas, { buildSvg } from "./poster-canvas";
@@ -13,14 +17,22 @@ const YEARS = ["1919", "1923", "1925", "1928", "1933"];
 const SITE = "bauhaus.iverfinne.no";
 const DEFAULT_SEED = 1337;
 
+const STYLE_ICON: Record<StyleId, LucideIcon> = {
+  petals: Flower2,
+  semicircles: Circle,
+  blocks: Box,
+  isocubes: Boxes,
+  mondrian: LayoutGrid,
+};
+
+// Pick a grid whose rows follow the fixed art-region ratio, so cells stay
+// square and the art fills the region on every poster.
 function deriveLayout(style: StyleId, seed: number) {
   const meta = STYLES.find((s) => s.id === style)!;
   const r = new Rng((seed ^ 0x5bd1e995) >>> 0);
-  return {
-    cols: r.int(meta.cols[0], meta.cols[1]),
-    rows: r.int(meta.rows[0], meta.rows[1]),
-    year: r.pick(YEARS),
-  };
+  const cols = r.int(meta.cols[0], meta.cols[1]);
+  const rows = Math.max(2, Math.round(cols * ART_REGION_RATIO));
+  return { cols, rows, year: r.pick(YEARS) };
 }
 
 function readHash(): { style?: StyleId; palette?: string; seed?: number; density?: number } {
@@ -41,10 +53,9 @@ export default function BauhausCreator() {
   const [style, setStyle] = useState<StyleId>("petals");
   const [paletteId, setPaletteId] = useState<string>(DEFAULT_PALETTE.petals);
   const [seed, setSeed] = useState<number>(DEFAULT_SEED);
-  const [density, setDensity] = useState<number>(0.55);
+  const [density, setDensity] = useState<number>(0.6);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Hydrate from URL hash (after mount → no SSR mismatch).
   useEffect(() => {
     const h = readHash();
     if (h.style) setStyle(h.style);
@@ -63,16 +74,10 @@ export default function BauhausCreator() {
 
   const styleName = STYLES.find((s) => s.id === style)!.name;
   const text: PosterText = useMemo(
-    () => ({
-      title: "Bauhaus",
-      year,
-      caption: `${styleName} · ${seedToString(seed)}`,
-      site: SITE,
-    }),
+    () => ({ title: "Bauhaus", year, caption: `${styleName} · ${seedToString(seed)}`, site: SITE }),
     [year, styleName, seed],
   );
 
-  // Keep URL hash in sync for shareable links.
   useEffect(() => {
     const p = new URLSearchParams({ s: style, p: paletteId, seed: seedToString(seed), d: density.toFixed(2) });
     window.history.replaceState(null, "", `#${p.toString()}`);
@@ -80,7 +85,7 @@ export default function BauhausCreator() {
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 1600);
+    window.setTimeout(() => setToast(null), 1400);
   }, []);
 
   const regenerate = useCallback(() => setSeed(randomSeed()), []);
@@ -97,22 +102,18 @@ export default function BauhausCreator() {
 
   const exportPng = useCallback(async () => {
     const svg = buildSvg(params, text, true);
-    const blob = new Blob([svg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
     const img = new Image();
-    img.crossOrigin = "anonymous";
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej(new Error("svg load failed"));
       img.src = url;
     });
     const targetW = 2000;
-    const ratio = img.height / img.width || 1.3;
     const canvas = document.createElement("canvas");
     canvas.width = targetW;
-    canvas.height = Math.round(targetW * ratio);
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.height = Math.round((targetW * (img.height || 1500)) / (img.width || 1000));
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     canvas.toBlob((b) => {
       if (!b) return;
@@ -121,19 +122,18 @@ export default function BauhausCreator() {
       a.download = `bauhaus-${style}-${seedToString(seed)}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
-      showToast("PNG saved");
+      showToast("PNG");
     }, "image/png");
   }, [params, text, style, seed, showToast]);
 
   const exportSvg = useCallback(() => {
     const svg = buildSvg(params, text, true);
-    const blob = new Blob([svg], { type: "image/svg+xml" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
     a.download = `bauhaus-${style}-${seedToString(seed)}.svg`;
     a.click();
     URL.revokeObjectURL(a.href);
-    showToast("SVG saved");
+    showToast("SVG");
   }, [params, text, style, seed, showToast]);
 
   const share = useCallback(async () => {
@@ -142,19 +142,22 @@ export default function BauhausCreator() {
       if (navigator.share) await navigator.share({ title: "Bauhaus", url });
       else {
         await navigator.clipboard.writeText(url);
-        showToast("Link copied");
+        showToast("Copied");
       }
     } catch {
-      /* user cancelled */
+      /* cancelled */
     }
   }, [showToast]);
 
   const adjustDensity = (delta: number) =>
-    setDensity((d) => Math.max(0, Math.min(1, Math.round((d + delta) * 100) / 100)));
+    setDensity((d) => Math.max(0.2, Math.min(1, Math.round((d + delta) * 10) / 10)));
+
+  const StyleIcon = STYLE_ICON[style];
+  const level = Math.max(1, Math.min(5, Math.round(density * 5)));
 
   return (
     <div className="creator">
-      <div className="stage" onClick={regenerate} title="Tap to regenerate">
+      <div className="stage" onClick={regenerate} title="Regenerate">
         <PosterCanvas params={params} text={text} />
       </div>
 
@@ -163,7 +166,9 @@ export default function BauhausCreator() {
           <button className="stepper" onClick={() => stepStyle(-1)} aria-label="Previous style">
             <ChevronLeft size={18} />
           </button>
-          <span className="style-name">{styleName}</span>
+          <span className="style-icon" aria-label={styleName} title={styleName}>
+            <StyleIcon size={20} />
+          </span>
           <button className="stepper" onClick={() => stepStyle(1)} aria-label="Next style">
             <ChevronRight size={18} />
           </button>
@@ -186,14 +191,18 @@ export default function BauhausCreator() {
         </div>
 
         <div className="row">
-          <div className="density">
-            <button onClick={() => adjustDensity(-0.15)} aria-label="Less"><Minus size={16} /></button>
-            <span>Density {Math.round(density * 100)}%</span>
-            <button onClick={() => adjustDensity(0.15)} aria-label="More"><Plus size={16} /></button>
+          <div className="density" aria-label={`Density ${level} of 5`}>
+            <button onClick={() => adjustDensity(-0.2)} aria-label="Less density"><Minus size={16} /></button>
+            <span className="dots">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <span key={i} className={i < level ? "on" : ""} />
+              ))}
+            </span>
+            <button onClick={() => adjustDensity(0.2)} aria-label="More density"><Plus size={16} /></button>
           </div>
           <div className="spacer" />
           <button className="action" onClick={share} aria-label="Share"><Share2 size={18} /></button>
-          <button className="action" onClick={exportSvg} aria-label="Save SVG"><span className="lbl">SVG</span></button>
+          <button className="action" onClick={exportSvg} aria-label="Save SVG"><FileCode2 size={18} /></button>
           <button className="action" onClick={exportPng} aria-label="Save PNG"><Download size={18} /></button>
           <button className="action primary" onClick={regenerate} aria-label="Regenerate"><Dice5 size={18} /></button>
         </div>
