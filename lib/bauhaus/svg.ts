@@ -53,7 +53,7 @@ export function sceneToPosterSvg(
   scene: Scene,
   palette: Palette,
   text: PosterText,
-  opts: { standalone?: boolean; clipId?: string } = {},
+  opts: { standalone?: boolean; clipId?: string; caption?: "full" | "minimal" } = {},
 ): string {
   const clipId = opts.clipId ?? "artclip";
   const xmlns = opts.standalone ? ` xmlns="http://www.w3.org/2000/svg"` : "";
@@ -72,6 +72,14 @@ export function sceneToPosterSvg(
 
   const art = scene.prims.map(primToSvg).join("");
 
+  // "minimal" (on screen) drops the style·seed line; "full" (export) keeps it.
+  const cap = (y: number, s: string) =>
+    `<text x="${ART_X}" y="${y}" font-family="${FONT}" font-weight="700" font-size="${CAP_SIZE}" letter-spacing="${CAP_SIZE * 0.08}" fill="${palette.ink}">${esc(s.toUpperCase())}</text>`;
+  const caption =
+    (opts.caption ?? "full") === "minimal"
+      ? cap(capLine2, text.site)
+      : cap(capLine1, text.caption) + cap(capLine2, text.site);
+
   return `<svg${xmlns}${size} viewBox="0 0 ${PW} ${PH}" preserveAspectRatio="xMidYMid meet">
   <defs><clipPath id="${clipId}"><rect x="${ART_X}" y="${ART_Y}" width="${ART_W}" height="${ART_H}"/></clipPath></defs>
   <rect x="0" y="0" width="${PW}" height="${PH}" fill="${palette.bg}"/>
@@ -80,7 +88,6 @@ export function sceneToPosterSvg(
   </g>
   <text x="${ART_X}" y="${titleY}" font-family="${FONT}" font-weight="800" font-size="${TITLE_SIZE}" letter-spacing="${-TITLE_SIZE * 0.03}" fill="${palette.ink}">${esc(text.title)}</text>
   <text x="${ART_X}" y="${yearY}" font-family="${FONT}" font-weight="800" font-size="${TITLE_SIZE}" letter-spacing="${-TITLE_SIZE * 0.03}" fill="${palette.ink}">${esc(text.year)}</text>
-  <text x="${ART_X}" y="${capLine1}" font-family="${FONT}" font-weight="700" font-size="${CAP_SIZE}" letter-spacing="${CAP_SIZE * 0.08}" fill="${palette.ink}">${esc(text.caption.toUpperCase())}</text>
-  <text x="${ART_X}" y="${capLine2}" font-family="${FONT}" font-weight="700" font-size="${CAP_SIZE}" letter-spacing="${CAP_SIZE * 0.08}" fill="${palette.ink}">${esc(text.site.toUpperCase())}</text>
+  ${caption}
 </svg>`;
 }

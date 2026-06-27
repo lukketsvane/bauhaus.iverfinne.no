@@ -6,10 +6,15 @@ import { getPalette } from "@/lib/bauhaus/palettes";
 import { sceneToPosterSvg, type PosterText } from "@/lib/bauhaus/svg";
 import type { GenParams } from "@/lib/bauhaus/types";
 
-export function buildSvg(params: GenParams, text: PosterText, standalone = false): string {
+export function buildSvg(
+  params: GenParams,
+  text: PosterText,
+  standalone = false,
+  caption: "full" | "minimal" = "full",
+): string {
   const scene = generate(params);
   const palette = getPalette(params.paletteId);
-  return sceneToPosterSvg(scene, palette, text, { standalone });
+  return sceneToPosterSvg(scene, palette, text, { standalone, caption });
 }
 
 export default function PosterCanvas({
@@ -19,7 +24,8 @@ export default function PosterCanvas({
   params: GenParams;
   text: PosterText;
 }) {
-  const svg = useMemo(() => buildSvg(params, text), [params, text]);
+  // On screen the style·seed line is hidden; the exported PNG/SVG keeps it.
+  const svg = useMemo(() => buildSvg(params, text, false, "minimal"), [params, text]);
   return (
     <div
       className="poster-canvas"
