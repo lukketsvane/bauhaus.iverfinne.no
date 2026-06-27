@@ -95,25 +95,25 @@ export default function BauhausCreator() {
   const regenerate = useCallback(() => setSeed(randomSeed()), []);
 
   const stepStyle = useCallback((dir: number) => {
+    // No text label — the poster visibly morphs to the new style.
     setStyle((cur) => {
       const idx = STYLES.findIndex((s) => s.id === cur);
       const next = STYLES[(idx + dir + STYLES.length) % STYLES.length];
       setPaletteId(DEFAULT_PALETTE[next.id]);
-      flash(<span>{next.name}</span>);
       return next.id;
     });
-  }, [flash]);
+  }, []);
 
   const cyclePalette = useCallback(() => {
     setPaletteId((cur) => {
       const idx = PALETTES.findIndex((p) => p.id === cur);
       const next = PALETTES[(idx + 1) % PALETTES.length];
+      // Show only the swatches — the colours speak for themselves.
       flash(
         <span className="swatch-flash">
-          {next.colors.slice(0, 3).map((c, i) => (
+          {next.colors.map((c, i) => (
             <span key={i} style={{ background: c }} />
           ))}
-          {next.name}
         </span>,
       );
       return next.id;
@@ -207,9 +207,9 @@ export default function BauhausCreator() {
     }
     clearTimers();
     if (n >= 2) {
-      tf.current = window.setTimeout(() => {
-        if (!g.current.handled) { g.current.handled = true; cyclePalette(); }
-      }, 300);
+      // Two fingers (incl. pinch) → change colour theme immediately. Firing on
+      // touch-start (not a hold) makes it reliable even when fingers move.
+      if (!g.current.handled) { g.current.handled = true; cyclePalette(); }
     } else {
       lp.current = window.setTimeout(() => {
         if (!g.current.moved && !g.current.handled) { g.current.handled = true; saveOrShare(); }
@@ -247,6 +247,21 @@ export default function BauhausCreator() {
     if (ax >= ay) stepStyle(dx < 0 ? 1 : -1);
     else stepDensity(dy < 0 ? 0.2 : -0.2);
   };
+
+  // ---- block iOS pinch-zoom (Safari ignores user-scalable=no) so our
+  //      two-finger gesture owns the pinch ----
+  useEffect(() => {
+    const prevent = (e: Event) => e.preventDefault();
+    const onMove = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+    document.addEventListener("gesturestart", prevent as EventListener);
+    document.addEventListener("gesturechange", prevent as EventListener);
+    document.addEventListener("touchmove", onMove, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", prevent as EventListener);
+      document.removeEventListener("gesturechange", prevent as EventListener);
+      document.removeEventListener("touchmove", onMove);
+    };
+  }, []);
 
   // ---- keyboard (desktop) ----
   useEffect(() => {
